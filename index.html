@@ -173,7 +173,8 @@ if (APPS_SCRIPT_URL) {
     if (!res) return;
     if (res.ok) {
       toast('✅ Reserva enviada! ID: ' + res.id.slice(0,8));
-      // Bloqueia as mesas recém-reservadas para outros
+      // Desmarca a seleção (senão a mesa continua "marcada" ao trocar de data) e bloqueia as recém-reservadas
+      document.querySelectorAll('.table-hotspot.selected').forEach(h=>h.click());
       lockBookedTables(res.tables.map(String));
     } else {
       toast('⚠️ ' + (res.error || 'Erro ao reservar.'));el.innerHTML='<strong>Não deu para reservar.</strong> '+(res.error||'')+' Escolha outra mesa ou outro horário.';document.getElementById('bookingTime').dispatchEvent(new Event('change'));
