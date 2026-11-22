@@ -1112,17 +1112,29 @@ document.body.insertAdjacentHTML('beforeend',`<dialog class="notice-dialog" id="
 <li><b>Quem é criança.</b>Têm 10% de desconto no prato as crianças com menos de 10 anos. A partir dos 10, o Lá na Roça não considera mais como criança. Se a criança come igual a um adulto, conte como adulto: a comida é preparada de forma proporcional ao número de pessoas, e a conta certa evita faltar prato.</li>
 </ol><div class="notice-actions"><button type="button" class="notice-back" id="noticeBack">Voltar e revisar</button><button type="button" class="notice-ok" id="noticeOk">Li e quero continuar</button></div></dialog>`);
 const dlg=$('#noticeDialog');let ok=false;
+const say2=t=>{const el=document.getElementById('toast');if(!el)return;el.textContent=t;el.classList.add('show');clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>el.classList.remove('show'),3600)};
+const isSelfDay=v=>{if(!v)return false;const d=new Date(v+'T12:00:00');return d.getDay()===0||d.getDay()===6||(d.getMonth()===11&&(d.getDate()===24||d.getDate()===25))};
+/* o pedido precisa dizer o tipo de atendimento: self-service OU prato montado (com pelo menos uma proteína) */
+function checkService(){
+  const dv=document.body.classList.contains('mode-delivery'),self=document.body.classList.contains('mode-self');
+  if(!dv&&isSelfDay(date.value)&&!document.querySelector('#serviceChoice input:checked'))return{msg:'Escolha como prefere comer: self-service ou montar o prato.',target:'#serviceChoice'};
+  if(!self&&!document.querySelectorAll('input[name=protein]:checked').length)return{msg:'Monte o prato antes de enviar: escolha pelo menos uma proteína.',target:'#prato'};
+  return null}
+window.LNR_checkService=checkService;
+function blockService(e){const p=checkService();if(!p)return false;e.preventDefault();e.stopImmediatePropagation();say2(p.msg);const t=document.querySelector(p.target);if(t)t.scrollIntoView({behavior:'smooth',block:'center'});return true}
 /* captura o envio antes do tratamento normal; se algo faltar, deixa o fluxo normal avisar */
 form.addEventListener('submit',e=>{
   if(document.body.classList.contains('mode-delivery')){
     e.preventDefault();e.stopImmediatePropagation();
     const say=t=>{const el=document.getElementById('toast');if(!el)return;el.textContent=t;el.classList.add('show');clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>el.classList.remove('show'),3200)};
     if(!date.value){say('Escolha primeiro a data no início da página.');return}
+    if(blockService(e))return;
     if(!window.LNR_deliveryReady||!window.LNR_deliveryReady()){say('Monte o prato mais acima para fazer o pedido.');return}
     if(ok){ok=false;window.LNR_deliverySubmit();return}
     dlg.showModal();return;
   }
   if(ok){ok=false;return}
+  if(date.value&&blockService(e))return;
   const sel=$$('.lnr-table.selected').length,P=window.LNR_party;
   const ready=date.value&&sel>0&&form.checkValidity()&&(!P||(P.seats(sel)>=P.adults()+P.children()&&sel<=P.needed()));
   if(!ready)return;
@@ -1300,6 +1312,24 @@ new MutationObserver(upd).observe(box,{childList:true,subtree:true,characterData
 /* v22 · escolha livre das mesas */
 .auto-pick{margin:8px 0 0;padding:8px 14px;border-radius:999px;border:1.5px solid #783342;background:#fff;color:#783342;font:700 .78rem system-ui,sans-serif;cursor:pointer}
 .auto-pick:hover{background:#f4e8e5}
+</style>
+<script>
+/* v23 · mostra no resultado total qual atendimento vai no pedido (self-service ou prato montado) */
+(()=>{const box=document.getElementById('groupTotalBox');if(!box)return;
+box.insertAdjacentHTML('beforebegin','<p class="service-echo" id="serviceEcho" aria-live="polite"></p>');
+const el=document.getElementById('serviceEcho');
+function upd(){const dv=document.body.classList.contains('mode-delivery'),self=document.body.classList.contains('mode-self');
+  const p=window.LNR_checkService&&window.LNR_checkService();let t,cls='';
+  if(self){t='<b>Atendimento:</b> self-service no buffet (o prato é montado e pago no local)'}
+  else if(p){t='<b>Atendimento:</b> '+p.msg;cls='warn'}
+  else{const n=document.querySelectorAll('input[name=protein]:checked').length;t='<b>Atendimento:</b> '+(dv?'delivery · ':'')+'prato montado pelo cardápio ('+n+' '+(n===1?'proteína escolhida':'proteínas escolhidas')+')'}
+  el.className='service-echo '+cls;el.innerHTML=t}
+['change','input','click'].forEach(ev=>document.addEventListener(ev,()=>setTimeout(upd,60),true));
+new MutationObserver(upd).observe(document.body,{attributes:true,attributeFilter:['class']});upd()})();
+</script>
+<style>
+.service-echo{margin:0 0 8px;padding:9px 12px;border-radius:10px;background:#eef5ec;border:1px solid #5f8f62;color:#1b5e20;font-size:.8rem;line-height:1.4}
+.service-echo.warn{background:#fdecea;border-color:#c0392b;color:#8c303f}
 </style>
 </body>
 </html>
